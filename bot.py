@@ -1,7 +1,6 @@
 import re
 import requests
 import time
-import os
 
 BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
 CHANNEL_ID = "-1002161382456"
@@ -10,24 +9,10 @@ AFFILIATE_TAG = "partha07e-21"
 SOURCE_CHANNELS = [
     "idoffers",
     "flipshope",
-    "eagledealsoffical",
-    "LootDealsIndia",
-    "DealBee",
-    "IndianDeals"
+    "eagledealsoffical"
 ]
 
-POSTED_FILE = "posted.txt"
-
 posted = set()
-
-if os.path.exists(POSTED_FILE):
-    with open(POSTED_FILE) as f:
-        posted = set(f.read().splitlines())
-
-
-def save_post(link):
-    with open(POSTED_FILE, "a") as f:
-        f.write(link + "\n")
 
 
 def expand_short(url):
@@ -44,7 +29,7 @@ def extract_amazon_link(text):
 
     for link in links:
 
-        if "amzn.to" in link:
+        if "amzn." in link:
             link = expand_short(link)
 
         if "amazon.in" in link:
@@ -53,7 +38,7 @@ def extract_amazon_link(text):
     return None
 
 
-def add_affiliate(link):
+def affiliate(link):
 
     base = link.split("?")[0]
 
@@ -72,24 +57,24 @@ def scrape_amazon(link):
 
         html = r.text
 
-        image = None
         price = "N/A"
         discount = "N/A"
-
-        # image
-        img = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', html)
-        if img:
-            image = img.group(1)
+        image = None
 
         # price
-        price_match = re.search(r'a-price-whole">([\d,]+)', html)
-        if price_match:
-            price = "₹" + price_match.group(1)
+        p = re.search(r'class="a-price-whole">([\d,]+)', html)
+        if p:
+            price = "₹" + p.group(1)
 
         # discount
-        disc_match = re.search(r'-(\d+)%', html)
-        if disc_match:
-            discount = "-" + disc_match.group(1) + "%"
+        d = re.search(r'-(\d+)%', html)
+        if d:
+            discount = "-" + d.group(1) + "%"
+
+        # image
+        img = re.search(r'property="og:image"\s*content="([^"]+)', html)
+        if img:
+            image = img.group(1)
 
         return image, price, discount
 
@@ -110,23 +95,23 @@ def send_photo(img, caption):
     requests.post(url, data=data)
 
 
-print("Affiliate bot running...")
+print("BOT RUNNING...")
 
 while True:
 
-    try:
+    for ch in SOURCE_CHANNELS:
 
-        for ch in SOURCE_CHANNELS:
+        try:
 
             html = requests.get(f"https://t.me/s/{ch}").text
 
-            blocks = html.split("tgme_widget_message_text")[:6]
+            links = re.findall(r'https://[^\s"]+', html)
 
-            for block in blocks:
+            for link in links:
 
-                link = extract_amazon_link(block)
+                link = expand_short(link)
 
-                if not link:
+                if "amazon.in" not in link:
                     continue
 
                 clean = link.split("?")[0]
@@ -135,11 +120,10 @@ while True:
                     continue
 
                 posted.add(clean)
-                save_post(clean)
 
                 img, price, discount = scrape_amazon(clean)
 
-                aff = add_affiliate(clean)
+                aff = affiliate(clean)
 
                 caption = f"""🔥 Amazon Deal
 
@@ -153,9 +137,9 @@ while True:
                 if img:
                     send_photo(img, caption)
 
-                time.sleep(6)
+                time.sleep(5)
 
-    except Exception as e:
-        print(e)
+        except Exception as e:
+            print("Error:", e)
 
     time.sleep(20)
