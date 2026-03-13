@@ -8,18 +8,15 @@ CHANNEL_ID = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
 SOURCE_CHANNELS = [
-    "LootDealsIndia",
-    "DealBee",
-    "IndianDeals",
-    "indiafreestffin",
-    "freekart",
-    "bestdealsdaily099",
     "idoffers",
     "flipshope",
-    "eagledealsoffical"
+    "eagledealsoffical",
+    "LootDealsIndia",
+    "DealBee",
+    "IndianDeals"
 ]
 
-POSTED_FILE = "posted_links.txt"
+POSTED_FILE = "posted.txt"
 
 posted = set()
 
@@ -28,17 +25,17 @@ if os.path.exists(POSTED_FILE):
         posted = set(f.read().splitlines())
 
 
-def save_link(link):
+def save_post(link):
     with open(POSTED_FILE, "a") as f:
         f.write(link + "\n")
 
 
-def expand_short(link):
+def expand_short(url):
     try:
-        r = requests.head(link, allow_redirects=True, timeout=10)
+        r = requests.head(url, allow_redirects=True, timeout=10)
         return r.url
     except:
-        return link
+        return url
 
 
 def extract_amazon_link(text):
@@ -50,7 +47,7 @@ def extract_amazon_link(text):
         if "amzn.to" in link:
             link = expand_short(link)
 
-        if "amazon." in link:
+        if "amazon.in" in link:
             return link
 
     return None
@@ -58,14 +55,16 @@ def extract_amazon_link(text):
 
 def add_affiliate(link):
 
-    clean = link.split("?")[0]
+    base = link.split("?")[0]
 
-    return f"{clean}?tag={AFFILIATE_TAG}"
+    return f"{base}?tag={AFFILIATE_TAG}"
 
 
 def scrape_amazon(link):
 
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
     try:
 
@@ -75,67 +74,53 @@ def scrape_amazon(link):
 
         image = None
         price = "N/A"
-        discount = ""
+        discount = "N/A"
 
         # image
         img = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', html)
         if img:
             image = img.group(1)
 
-        # discounted price
-        price_match = re.search(r'class="a-price-whole">([\d,]+)', html)
+        # price
+        price_match = re.search(r'a-price-whole">([\d,]+)', html)
         if price_match:
             price = "₹" + price_match.group(1)
 
         # discount
-        discount_match = re.search(r'\((\d+)%\s*off\)', html.lower())
-        if discount_match:
-            discount = discount_match.group(1) + "% OFF"
+        disc_match = re.search(r'-(\d+)%', html)
+        if disc_match:
+            discount = "-" + disc_match.group(1) + "%"
 
         return image, price, discount
 
     except:
-        return None, "N/A", ""
+        return None, "N/A", "N/A"
 
 
-def send_photo(photo, caption):
+def send_photo(img, caption):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "photo": photo,
+        "photo": img,
         "caption": caption
     }
 
     requests.post(url, data=data)
 
 
-def send_message(text):
-
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-    data = {
-        "chat_id": CHANNEL_ID,
-        "text": text,
-        "disable_web_page_preview": True
-    }
-
-    requests.post(url, data=data)
-
-
-print("Amazon Affiliate Bot Running...")
+print("Affiliate bot running...")
 
 while True:
 
     try:
 
-        for channel in SOURCE_CHANNELS:
+        for ch in SOURCE_CHANNELS:
 
-            html = requests.get(f"https://t.me/s/{channel}").text
+            html = requests.get(f"https://t.me/s/{ch}").text
 
-            # latest posts only
-            blocks = html.split("tgme_widget_message_text")[:5]
+            blocks = html.split("tgme_widget_message_text")[:6]
 
             for block in blocks:
 
@@ -150,27 +135,25 @@ while True:
                     continue
 
                 posted.add(clean)
-                save_link(clean)
+                save_post(clean)
 
-                image, price, discount = scrape_amazon(clean)
+                img, price, discount = scrape_amazon(clean)
 
-                affiliate = add_affiliate(clean)
+                aff = add_affiliate(clean)
 
                 caption = f"""🔥 Amazon Deal
 
 💰 Price: {price}
-🔥 Discount: {discount}
+📉 Discount: {discount}
 
 🛒 Buy Now
-{affiliate}
+{aff}
 """
 
-                if image:
-                    send_photo(image, caption)
-                else:
-                    send_message(caption)
+                if img:
+                    send_photo(img, caption)
 
-                time.sleep(5)
+                time.sleep(6)
 
     except Exception as e:
         print(e)
