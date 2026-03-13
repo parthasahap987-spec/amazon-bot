@@ -1,61 +1,86 @@
+import re
 import requests
-import feedparser
 import time
 
 BOT_TOKEN = "8799971120:AAHlHlFBghuS73mBBaUI27PA1Ih45f1NhCw"
-CHANNEL_ID = "-1002161382456"
+TARGET_CHANNEL = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
-# working RSS source
-RSS_URL = "https://rss.app/feeds/v1.1/_amazon.xml"
+# deal source channel usernames
+SOURCE_CHANNELS = [
+    "LootDealsIndia",
+    "DealBee",
+    "IndianDeals"
+]
 
-posted_links = set()
+posted = set()
 
-def add_affiliate(link):
+
+def extract_amazon_link(text):
+
+    links = re.findall(r'https?://\S+', text)
+
+    for link in links:
+        if "amazon." in link or "amzn.to" in link:
+            return link
+
+    return None
+
+
+def add_tag(link):
+
     link = link.split("?")[0]
+
     return f"{link}?tag={AFFILIATE_TAG}"
 
-def send_message(msg):
+
+def send_message(text):
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     data = {
-        "chat_id": CHANNEL_ID,
-        "text": msg,
-        "disable_web_page_preview": True
+        "chat_id": TARGET_CHANNEL,
+        "text": text,
+        "disable_web_page_preview": False
     }
 
     requests.post(url, data=data)
 
-print("Amazon Auto Bot Running...")
+
+print("Auto Amazon Telegram Bot Running...")
 
 while True:
 
     try:
 
-        feed = feedparser.parse(RSS_URL)
+        for channel in SOURCE_CHANNELS:
 
-        for item in feed.entries:
+            url = f"https://t.me/s/{channel}"
 
-            link = item.link
+            html = requests.get(url).text
 
-            if link in posted_links:
-                continue
+            links = re.findall(r'https://www\.amazon\.in/\S+', html)
 
-            posted_links.add(link)
+            for link in links:
 
-            aff_link = add_affiliate(link)
+                if link in posted:
+                    continue
 
-            msg = f"""🔥 Amazon Deal
+                posted.add(link)
+
+                affiliate = add_tag(link)
+
+                msg = f"""🔥 Amazon Deal
 
 🛒 Buy Now
-{aff_link}
+{affiliate}
 """
 
-            send_message(msg)
+                send_message(msg)
 
-            time.sleep(20)
+                time.sleep(20)
 
     except Exception as e:
-        print("Error:", e)
+        print(e)
 
     time.sleep(600)
