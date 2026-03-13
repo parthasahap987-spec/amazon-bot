@@ -12,8 +12,7 @@ SOURCE_CHANNELS = [
     "eagledealsoffical"
 ]
 
-posted = set()
-
+posted_links = set()
 
 def expand_short(url):
     try:
@@ -23,38 +22,20 @@ def expand_short(url):
         return url
 
 
-def extract_amazon_link(text):
+def extract_links(html):
 
-    links = re.findall(r'https?://\S+', text)
+    links = re.findall(r'https://[^\s"]+', html)
 
-    for link in links:
-
-        if "amzn." in link:
-            link = expand_short(link)
-
-        if "amazon.in" in link:
-            return link
-
-    return None
-
-
-def affiliate(link):
-
-    base = link.split("?")[0]
-
-    return f"{base}?tag={AFFILIATE_TAG}"
+    return links
 
 
 def scrape_amazon(link):
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
 
         r = requests.get(link, headers=headers, timeout=10)
-
         html = r.text
 
         price = "N/A"
@@ -82,44 +63,54 @@ def scrape_amazon(link):
         return None, "N/A", "N/A"
 
 
-def send_photo(img, caption):
+def affiliate(link):
+
+    base = link.split("?")[0]
+
+    return f"{base}?tag={AFFILIATE_TAG}"
+
+
+def send_photo(photo, caption):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "photo": img,
+        "photo": photo,
         "caption": caption
     }
 
     requests.post(url, data=data)
 
 
-print("BOT RUNNING...")
+print("BOT STARTED...")
 
 while True:
 
-    for ch in SOURCE_CHANNELS:
+    for channel in SOURCE_CHANNELS:
 
         try:
 
-            html = requests.get(f"https://t.me/s/{ch}").text
+            url = f"https://t.me/s/{channel}"
 
-            links = re.findall(r'https://[^\s"]+', html)
+            html = requests.get(url).text
+
+            links = extract_links(html)
 
             for link in links:
 
-                link = expand_short(link)
+                if "amzn." in link:
+                    link = expand_short(link)
 
                 if "amazon.in" not in link:
                     continue
 
                 clean = link.split("?")[0]
 
-                if clean in posted:
+                if clean in posted_links:
                     continue
 
-                posted.add(clean)
+                posted_links.add(clean)
 
                 img, price, discount = scrape_amazon(clean)
 
@@ -137,7 +128,7 @@ while True:
                 if img:
                     send_photo(img, caption)
 
-                time.sleep(5)
+                time.sleep(4)
 
         except Exception as e:
             print("Error:", e)
