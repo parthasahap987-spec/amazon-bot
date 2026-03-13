@@ -19,24 +19,26 @@ posted_links = set()
 
 
 def add_tag(link):
-    link = link.split("?")[0]
-    return f"{link}?tag={AFFILIATE_TAG}"
+    clean = link.split("?")[0]
+    return f"{clean}?tag={AFFILIATE_TAG}"
 
 
-def get_product_image(link):
+def get_amazon_image(link):
 
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
     try:
+
         r = requests.get(link, headers=headers, timeout=10)
+
         html = r.text
 
-        img = re.search(r'https://m\.media-amazon\.com/images/I/[^\"]+', html)
+        img = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', html)
 
         if img:
-            return img.group()
+            return img.group(1)
 
     except:
         pass
@@ -44,13 +46,13 @@ def get_product_image(link):
     return None
 
 
-def send_photo(image, caption):
+def send_photo(photo, caption):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "photo": image,
+        "photo": photo,
         "caption": caption
     }
 
@@ -65,11 +67,11 @@ while True:
 
         for channel in SOURCE_CHANNELS:
 
-            url = f"https://t.me/s/{channel}"
-
-            html = requests.get(url).text
+            html = requests.get(f"https://t.me/s/{channel}").text
 
             links = re.findall(r'https://www\.amazon\.in/[^\s"]+', html)
+
+            links = list(set(links))  # duplicate remove
 
             for link in links:
 
@@ -82,7 +84,7 @@ while True:
 
                 affiliate = add_tag(clean_link)
 
-                image = get_product_image(clean_link)
+                image = get_amazon_image(clean_link)
 
                 caption = f"""🔥 Amazon Deal
 
@@ -93,7 +95,7 @@ while True:
                 if image:
                     send_photo(image, caption)
 
-                time.sleep(15)
+                time.sleep(10)
 
     except Exception as e:
         print(e)
