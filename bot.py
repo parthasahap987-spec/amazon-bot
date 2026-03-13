@@ -1,6 +1,7 @@
 import re
 import requests
 import time
+import os
 
 BOT_TOKEN = "8799971120:AAEVSONtxInLeFj82UXIy93hU0kG1w7Pgiw"
 CHANNEL_ID = "-1002161382456"
@@ -18,7 +19,19 @@ SOURCE_CHANNELS = [
     "eagledealsoffical"
 ]
 
+POSTED_FILE = "posted_links.txt"
+
 posted_links = set()
+
+# load old links
+if os.path.exists(POSTED_FILE):
+    with open(POSTED_FILE) as f:
+        posted_links = set(f.read().splitlines())
+
+
+def save_link(link):
+    with open(POSTED_FILE, "a") as f:
+        f.write(link + "\n")
 
 
 def expand_short_link(link):
@@ -111,6 +124,7 @@ while True:
                     continue
 
                 posted_links.add(clean)
+                save_link(clean)
 
                 affiliate = add_affiliate(clean)
 
