@@ -1,7 +1,6 @@
 import re
 import requests
 import time
-import os
 
 BOT_TOKEN = "8799971120:AAHjV4JmOvOq9nxpynT0et3rvE04t43ojMw"
 CHANNEL_ID = "-1002161382456"
@@ -16,18 +15,7 @@ SOURCE_CHANNELS = [
     "bestdealsdaily099"
 ]
 
-POSTED_FILE = "posted_links.txt"
-
-posted = set()
-
-if os.path.exists(POSTED_FILE):
-    with open(POSTED_FILE) as f:
-        posted = set(f.read().splitlines())
-
-
-def save(link):
-    with open(POSTED_FILE, "a") as f:
-        f.write(link + "\n")
+posted_links = set()
 
 
 def add_tag(link):
@@ -35,16 +23,14 @@ def add_tag(link):
     return f"{link}?tag={AFFILIATE_TAG}"
 
 
-def get_image(link):
+def get_product_image(link):
 
     headers = {
         "User-Agent": "Mozilla/5.0"
     }
 
     try:
-
-        r = requests.get(link, headers=headers)
-
+        r = requests.get(link, headers=headers, timeout=10)
         html = r.text
 
         img = re.search(r'https://m\.media-amazon\.com/images/I/[^\"]+', html)
@@ -58,13 +44,13 @@ def get_image(link):
     return None
 
 
-def send_photo(photo, caption):
+def send_photo(image, caption):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "photo": photo,
+        "photo": image,
         "caption": caption
     }
 
@@ -79,21 +65,24 @@ while True:
 
         for channel in SOURCE_CHANNELS:
 
-            html = requests.get(f"https://t.me/s/{channel}").text
+            url = f"https://t.me/s/{channel}"
+
+            html = requests.get(url).text
 
             links = re.findall(r'https://www\.amazon\.in/[^\s"]+', html)
 
             for link in links:
 
-                if link in posted:
+                clean_link = link.split("?")[0]
+
+                if clean_link in posted_links:
                     continue
 
-                posted.add(link)
-                save(link)
+                posted_links.add(clean_link)
 
-                affiliate = add_tag(link)
+                affiliate = add_tag(clean_link)
 
-                image = get_image(link)
+                image = get_product_image(clean_link)
 
                 caption = f"""🔥 Amazon Deal
 
@@ -103,21 +92,10 @@ while True:
 
                 if image:
                     send_photo(image, caption)
-                else:
 
-                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-                    data = {
-                        "chat_id": CHANNEL_ID,
-                        "text": caption,
-                        "disable_web_page_preview": True
-                    }
-
-                    requests.post(url, data=data)
-
-                time.sleep(10)
+                time.sleep(15)
 
     except Exception as e:
         print(e)
 
-    time.sleep(30)
+    time.sleep(300)
