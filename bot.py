@@ -35,6 +35,29 @@ def add_tag(link):
     return f"{link}?tag={AFFILIATE_TAG}"
 
 
+def get_amazon_price(link):
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    try:
+
+        r = requests.get(link, headers=headers)
+
+        html = r.text
+
+        price = re.search(r'₹\s?\d[\d,]*', html)
+
+        if price:
+            return price.group()
+
+    except:
+        pass
+
+    return "N/A"
+
+
 def send_message(text):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -48,7 +71,7 @@ def send_message(text):
     requests.post(url, data=data)
 
 
-print("Amazon Bot Running...")
+print("Amazon Affiliate Bot Running...")
 
 while True:
 
@@ -58,32 +81,21 @@ while True:
 
             html = requests.get(f"https://t.me/s/{channel}").text
 
-            messages = html.split("tgme_widget_message_text")
+            links = re.findall(r'https://www\.amazon\.in/[^\s"]+', html)
 
-            for block in messages:
-
-                link_match = re.search(r'https://www\.amazon\.in/[^\s"]+', block)
-
-                if not link_match:
-                    continue
-
-                link = link_match.group()
+            for link in links:
 
                 if link in posted:
                     continue
 
-                price_match = re.search(r'₹\s?\d+', block)
-
-                price = "N/A"
-                if price_match:
-                    price = price_match.group()
-
                 posted.add(link)
                 save_link(link)
 
+                price = get_amazon_price(link)
+
                 affiliate = add_tag(link)
 
-                text = f"""🔥 Amazon Deal
+                msg = f"""🔥 Amazon Deal
 
 💰 Price: {price}
 
@@ -91,11 +103,11 @@ while True:
 {affiliate}
 """
 
-                send_message(text)
+                send_message(msg)
 
-                time.sleep(10)
+                time.sleep(15)
 
     except Exception as e:
         print(e)
 
-    time.sleep(120)
+    time.sleep(20)
