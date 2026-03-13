@@ -34,9 +34,8 @@ def save_link(link):
 
 
 def expand_short(link):
-
     try:
-        r = requests.head(link, allow_redirects=True)
+        r = requests.head(link, allow_redirects=True, timeout=10)
         return r.url
     except:
         return link
@@ -70,7 +69,7 @@ def scrape_amazon(link):
 
     try:
 
-        r = requests.get(link, headers=headers)
+        r = requests.get(link, headers=headers, timeout=10)
 
         html = r.text
 
@@ -78,15 +77,18 @@ def scrape_amazon(link):
         price = "N/A"
         discount = ""
 
+        # image
         img = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', html)
         if img:
             image = img.group(1)
 
+        # discounted price
         price_match = re.search(r'class="a-price-whole">([\d,]+)', html)
         if price_match:
             price = "₹" + price_match.group(1)
 
-        discount_match = re.search(r'(\d+)%\s*off', html.lower())
+        # discount
+        discount_match = re.search(r'\((\d+)%\s*off\)', html.lower())
         if discount_match:
             discount = discount_match.group(1) + "% OFF"
 
@@ -109,6 +111,19 @@ def send_photo(photo, caption):
     requests.post(url, data=data)
 
 
+def send_message(text):
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    data = {
+        "chat_id": CHANNEL_ID,
+        "text": text,
+        "disable_web_page_preview": True
+    }
+
+    requests.post(url, data=data)
+
+
 print("Amazon Affiliate Bot Running...")
 
 while True:
@@ -119,7 +134,8 @@ while True:
 
             html = requests.get(f"https://t.me/s/{channel}").text
 
-            blocks = html.split("tgme_widget_message_text")
+            # latest posts only
+            blocks = html.split("tgme_widget_message_text")[:5]
 
             for block in blocks:
 
@@ -151,6 +167,8 @@ while True:
 
                 if image:
                     send_photo(image, caption)
+                else:
+                    send_message(caption)
 
                 time.sleep(5)
 
