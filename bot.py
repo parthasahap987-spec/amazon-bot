@@ -4,7 +4,7 @@ import time
 import os
 
 BOT_TOKEN = "8799971120:AAHjV4JmOvOq9nxpynT0et3rvE04t43ojMw"
-TARGET_CHANNEL = "-1002161382456"
+CHANNEL_ID = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
 SOURCE_CHANNELS = [
@@ -16,7 +16,7 @@ SOURCE_CHANNELS = [
     "bestdealsdaily099"
 ]
 
-POSTED_FILE = "posted.txt"
+POSTED_FILE = "posted_links.txt"
 
 posted = set()
 
@@ -25,7 +25,7 @@ if os.path.exists(POSTED_FILE):
         posted = set(f.read().splitlines())
 
 
-def save(link):
+def save_link(link):
     with open(POSTED_FILE, "a") as f:
         f.write(link + "\n")
 
@@ -35,12 +35,12 @@ def add_tag(link):
     return f"{link}?tag={AFFILIATE_TAG}"
 
 
-def send(text):
+def send_message(text):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     data = {
-        "chat_id": TARGET_CHANNEL,
+        "chat_id": CHANNEL_ID,
         "text": text,
         "disable_web_page_preview": True
     }
@@ -48,7 +48,7 @@ def send(text):
     requests.post(url, data=data)
 
 
-print("Bot running...")
+print("Amazon Bot Running...")
 
 while True:
 
@@ -56,39 +56,46 @@ while True:
 
         for channel in SOURCE_CHANNELS:
 
-            page = requests.get(f"https://t.me/s/{channel}").text
+            html = requests.get(f"https://t.me/s/{channel}").text
 
-            links = re.findall(r'https://www\.amazon\.in/[^\s"]+', page)
+            messages = html.split("tgme_widget_message_text")
 
-            prices = re.findall(r'₹\s?\d+', page)
+            for block in messages:
 
-            price = None
-            if prices:
-                price = prices[0]
+                link_match = re.search(r'https://www\.amazon\.in/[^\s"]+', block)
 
-            for link in links:
+                if not link_match:
+                    continue
+
+                link = link_match.group()
 
                 if link in posted:
                     continue
 
+                price_match = re.search(r'₹\s?\d+', block)
+
+                price = "N/A"
+                if price_match:
+                    price = price_match.group()
+
                 posted.add(link)
-                save(link)
+                save_link(link)
 
-                aff = add_tag(link)
+                affiliate = add_tag(link)
 
-                msg = f"""🔥 Amazon Deal
+                text = f"""🔥 Amazon Deal
 
 💰 Price: {price}
 
 🛒 Buy Now
-{aff}
+{affiliate}
 """
 
-                send(msg)
+                send_message(text)
 
                 time.sleep(10)
 
     except Exception as e:
         print(e)
 
-    time.sleep(10)
+    time.sleep(120)
