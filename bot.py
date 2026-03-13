@@ -3,7 +3,7 @@ import requests
 import time
 import os
 
-BOT_TOKEN = "8799971120:AAEVSONtxInLeFj82UXIy93hU0kG1w7Pgiw"
+BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
 CHANNEL_ID = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
@@ -23,7 +23,6 @@ POSTED_FILE = "posted_links.txt"
 
 posted_links = set()
 
-# load old links
 if os.path.exists(POSTED_FILE):
     with open(POSTED_FILE) as f:
         posted_links = set(f.read().splitlines())
@@ -34,7 +33,7 @@ def save_link(link):
         f.write(link + "\n")
 
 
-def expand_short_link(link):
+def expand_short(link):
 
     try:
         r = requests.head(link, allow_redirects=True, timeout=10)
@@ -50,7 +49,7 @@ def extract_amazon_link(text):
     for link in links:
 
         if "amzn.to" in link:
-            link = expand_short_link(link)
+            link = expand_short(link)
 
         if "amazon." in link:
             return link
@@ -65,7 +64,7 @@ def add_affiliate(link):
     return f"{clean}?tag={AFFILIATE_TAG}"
 
 
-def get_product_image(link):
+def get_product_data(link):
 
     headers = {"User-Agent": "Mozilla/5.0"}
 
@@ -75,15 +74,26 @@ def get_product_image(link):
 
         html = r.text
 
-        img = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', html)
+        image = None
+        price = "N/A"
+        discount = ""
 
+        img = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', html)
         if img:
-            return img.group(1)
+            image = img.group(1)
+
+        price_match = re.search(r'₹\s?[\d,]+', html)
+        if price_match:
+            price = price_match.group()
+
+        discount_match = re.search(r'\d+%\s?off', html.lower())
+        if discount_match:
+            discount = discount_match.group()
+
+        return image, price, discount
 
     except:
-        pass
-
-    return None
+        return None, "N/A", ""
 
 
 def send_photo(photo, caption):
@@ -99,7 +109,7 @@ def send_photo(photo, caption):
     requests.post(url, data=data)
 
 
-print("Amazon Affiliate Bot Running...")
+print("Amazon Pro Affiliate Bot Running...")
 
 while True:
 
@@ -109,9 +119,9 @@ while True:
 
             html = requests.get(f"https://t.me/s/{channel}").text
 
-            messages = html.split("tgme_widget_message_text")
+            blocks = html.split("tgme_widget_message_text")
 
-            for block in messages:
+            for block in blocks:
 
                 link = extract_amazon_link(block)
 
@@ -128,9 +138,12 @@ while True:
 
                 affiliate = add_affiliate(clean)
 
-                image = get_product_image(clean)
+                image, price, discount = get_product_data(clean)
 
                 caption = f"""🔥 Amazon Deal
+
+💰 Price: {price}
+🔥 Discount: {discount}
 
 🛒 Buy Now
 {affiliate}
@@ -139,21 +152,9 @@ while True:
                 if image:
                     send_photo(image, caption)
 
-                else:
-
-                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-                    data = {
-                        "chat_id": CHANNEL_ID,
-                        "text": caption,
-                        "disable_web_page_preview": True
-                    }
-
-                    requests.post(url, data=data)
-
-                time.sleep(10)
+                time.sleep(5)
 
     except Exception as e:
         print(e)
 
-    time.sleep(120)
+    time.sleep(20)
