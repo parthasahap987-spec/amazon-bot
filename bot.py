@@ -1,64 +1,114 @@
+import re
 import requests
-import feedparser
 import time
+import os
 
-BOT_TOKEN = "8799971120:AAHjV4JmOvOq9nxpynT0et3rvE04t43ojMw"
-CHANNEL_ID = "-1002161382456"
+BOT_TOKEN = "8799971120:AAHlHlFBghuS73mBBaUI27PA1Ih45f1NhCw"
+TARGET_CHANNEL = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
-RSS_URL = "https://rss.app/feeds/AmazonDeals.xml"
+SOURCE_CHANNELS = [
+    "LootDealsIndia",
+    "DealBee",
+    "IndianDeals",
+    "indiafreestffin",
+    "freekart",
+    "bestdealsdaily099"
+]
+
+POSTED_FILE = "posted_links.txt"
 
 posted = set()
+
+if os.path.exists(POSTED_FILE):
+    with open(POSTED_FILE) as f:
+        posted = set(f.read().splitlines())
+
+
+def save_link(link):
+    with open(POSTED_FILE, "a") as f:
+        f.write(link + "\n")
+
 
 def add_tag(link):
     link = link.split("?")[0]
     return f"{link}?tag={AFFILIATE_TAG}"
 
-def send_message(msg):
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+def detect_price(text):
+
+    price = re.findall(r'₹\s?\d+', text)
+
+    if price:
+        return price[0]
+
+    return None
+
+
+def send_photo(photo, caption):
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
-        "chat_id": CHANNEL_ID,
-        "text": msg,
-        "disable_web_page_preview": True
+        "chat_id": TARGET_CHANNEL,
+        "photo": photo,
+        "caption": caption,
+        "parse_mode": "Markdown"
     }
 
     requests.post(url, data=data)
 
-print("Amazon Auto Bot Running...")
+
+print("Amazon Telegram Deal Bot Running...")
 
 while True:
 
     try:
 
-        feed = feedparser.parse(RSS_URL)
+        for channel in SOURCE_CHANNELS:
 
-        for item in feed.entries:
+            url = f"https://t.me/s/{channel}"
 
-            link = item.link
+            html = requests.get(url).text
 
-            if link in posted:
-                continue
+            links = re.findall(r'https://www\.amazon\.in/[^\s"]+', html)
 
-            posted.add(link)
+            images = re.findall(r'https://[^"]+\.jpg', html)
 
-            affiliate = add_tag(link)
+            price = detect_price(html)
 
-            msg = f"""🔥 Amazon Deal
+            for link in links:
+
+                if link in posted:
+                    continue
+
+                posted.add(link)
+                save_link(link)
+
+                affiliate = add_tag(link)
+
+                caption = f"""🔥 Amazon Deal
+
+💰 Price: {price}
 
 🛒 Buy Now
 {affiliate}
 """
 
-            send_message(msg)
+                photo = None
 
-            time.sleep(20)
+                if images:
+                    photo = images[0]
 
-    except Exception as e:
-        print(e)
+                if photo:
+                    send_photo(photo, caption)
+                else:
 
-    time.sleep(300)                        "text": caption,
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+                    data = {
+                        "chat_id": TARGET_CHANNEL,
+                        "text": caption,
                         "disable_web_page_preview": True
                     }
 
