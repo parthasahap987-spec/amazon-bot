@@ -20,7 +20,6 @@ POSTED_FILE = "posted_links.txt"
 
 posted = set()
 
-# load old posted links
 if os.path.exists(POSTED_FILE):
     with open(POSTED_FILE, "r") as f:
         posted = set(f.read().splitlines())
@@ -36,20 +35,31 @@ def add_tag(link):
     return f"{link}?tag={AFFILIATE_TAG}"
 
 
-def send_message(text):
+def get_price(text):
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    price = re.findall(r'₹\s?\d+', text)
+
+    if price:
+        return price[0]
+
+    return None
+
+
+def send_photo(photo, caption):
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": TARGET_CHANNEL,
-        "text": text,
-        "disable_web_page_preview": True
+        "photo": photo,
+        "caption": caption,
+        "parse_mode": "Markdown"
     }
 
     requests.post(url, data=data)
 
 
-print("Auto Amazon Telegram Bot Running...")
+print("Amazon Auto Bot Running...")
 
 while True:
 
@@ -63,6 +73,10 @@ while True:
 
             links = re.findall(r'https://www\.amazon\.in/\S+', html)
 
+            images = re.findall(r'https://[^"]+\.jpg', html)
+
+            price = get_price(html)
+
             for link in links:
 
                 if link in posted:
@@ -73,15 +87,33 @@ while True:
 
                 affiliate = add_tag(link)
 
-                msg = f"""🔥 Amazon Deal
+                caption = f"""🔥 Amazon Deal
+
+💰 Price: {price}
 
 🛒 Buy Now
 {affiliate}
 """
 
-                send_message(msg)
+                photo = None
 
-                time.sleep(20)
+                if images:
+                    photo = images[0]
+
+                if photo:
+                    send_photo(photo, caption)
+                else:
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+                    data = {
+                        "chat_id": TARGET_CHANNEL,
+                        "text": caption,
+                        "disable_web_page_preview": True
+                    }
+
+                    requests.post(url, data=data)
+
+                time.sleep(15)
 
     except Exception as e:
         print(e)
