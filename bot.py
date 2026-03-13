@@ -25,7 +25,7 @@ if os.path.exists(POSTED_FILE):
         posted = set(f.read().splitlines())
 
 
-def save_link(link):
+def save(link):
     with open(POSTED_FILE, "a") as f:
         f.write(link + "\n")
 
@@ -35,7 +35,7 @@ def add_tag(link):
     return f"{link}?tag={AFFILIATE_TAG}"
 
 
-def get_amazon_price(link):
+def get_image(link):
 
     headers = {
         "User-Agent": "Mozilla/5.0"
@@ -47,31 +47,31 @@ def get_amazon_price(link):
 
         html = r.text
 
-        price = re.search(r'₹\s?\d[\d,]*', html)
+        img = re.search(r'https://m\.media-amazon\.com/images/I/[^\"]+', html)
 
-        if price:
-            return price.group()
+        if img:
+            return img.group()
 
     except:
         pass
 
-    return "N/A"
+    return None
 
 
-def send_message(text):
+def send_photo(photo, caption):
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "text": text,
-        "disable_web_page_preview": True
+        "photo": photo,
+        "caption": caption
     }
 
     requests.post(url, data=data)
 
 
-print("Amazon Affiliate Bot Running...")
+print("Amazon Image Bot Running...")
 
 while True:
 
@@ -89,25 +89,35 @@ while True:
                     continue
 
                 posted.add(link)
-                save_link(link)
-
-                price = get_amazon_price(link)
+                save(link)
 
                 affiliate = add_tag(link)
 
-                msg = f"""🔥 Amazon Deal
+                image = get_image(link)
 
-💰 Price: {price}
+                caption = f"""🔥 Amazon Deal
 
 🛒 Buy Now
 {affiliate}
 """
 
-                send_message(msg)
+                if image:
+                    send_photo(image, caption)
+                else:
 
-                time.sleep(15)
+                    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+                    data = {
+                        "chat_id": CHANNEL_ID,
+                        "text": caption,
+                        "disable_web_page_preview": True
+                    }
+
+                    requests.post(url, data=data)
+
+                time.sleep(10)
 
     except Exception as e:
         print(e)
 
-    time.sleep(20)
+    time.sleep(30)
