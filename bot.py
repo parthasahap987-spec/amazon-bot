@@ -1,48 +1,30 @@
 import requests
-import re
+import feedparser
 import time
 
 BOT_TOKEN = "8799971120:AAHlHlFBghuS73mBBaUI27PA1Ih45f1NhCw"
 CHANNEL_ID = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
-# Amazon deal RSS feeds
-FEEDS = [
-"https://rss.app/feeds/amazon-deals.xml"
-]
+# working RSS source
+RSS_URL = "https://rss.app/feeds/v1.1/_amazon.xml"
 
-posted = set()
+posted_links = set()
 
-
-def extract_link(text):
-    links = re.findall(r'https?://\S+', text)
-
-    for link in links:
-        if "amazon." in link or "amzn.to" in link:
-            return link
-
-    return None
-
-
-def add_tag(link):
-
+def add_affiliate(link):
     link = link.split("?")[0]
-
     return f"{link}?tag={AFFILIATE_TAG}"
 
-
-def send_message(text):
-
+def send_message(msg):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "text": text,
-        "disable_web_page_preview": False
+        "text": msg,
+        "disable_web_page_preview": True
     }
 
     requests.post(url, data=data)
-
 
 print("Amazon Auto Bot Running...")
 
@@ -50,34 +32,30 @@ while True:
 
     try:
 
-        # Example deals
-        deals = [
-        "https://www.amazon.in/dp/B08CFJBZRK",
-        "https://www.amazon.in/dp/B0B4F2TTTS",
-        "https://www.amazon.in/dp/B0C7QK3J5N"
-        ]
+        feed = feedparser.parse(RSS_URL)
 
-        for link in deals:
+        for item in feed.entries:
 
-            if link in posted:
+            link = item.link
+
+            if link in posted_links:
                 continue
 
-            posted.add(link)
+            posted_links.add(link)
 
-            affiliate = add_tag(link)
+            aff_link = add_affiliate(link)
 
-            msg = f"""
-🔥 Amazon Deal
+            msg = f"""🔥 Amazon Deal
 
 🛒 Buy Now
-{affiliate}
+{aff_link}
 """
 
             send_message(msg)
 
-            time.sleep(10)
+            time.sleep(20)
 
     except Exception as e:
-        print(e)
+        print("Error:", e)
 
     time.sleep(600)
