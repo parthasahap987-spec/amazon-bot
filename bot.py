@@ -10,7 +10,10 @@ AFFILIATE_TAG = "partha07e-21"
 SOURCE_CHANNELS = [
     "LootDealsIndia",
     "DealBee",
-    "IndianDeals"
+    "IndianDeals",
+    "indiafreestffin",
+    "freekart",
+    "bestdealsdaily099"
 ]
 
 posted = set()
