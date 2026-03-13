@@ -3,7 +3,7 @@ import requests
 import time
 import os
 
-BOT_TOKEN = "8799971120:AAHlHlFBghuS73mBBaUI27PA1Ih45f1NhCw"
+BOT_TOKEN = "8799971120:AAHjV4JmOvOq9nxpynT0et3rvE04t43ojMw"
 TARGET_CHANNEL = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
