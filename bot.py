@@ -1,12 +1,12 @@
 import re
 import requests
 import time
+import os
 
 BOT_TOKEN = "8799971120:AAHlHlFBghuS73mBBaUI27PA1Ih45f1NhCw"
 TARGET_CHANNEL = "-1002161382456"
 AFFILIATE_TAG = "partha07e-21"
 
-# deal source channel usernames
 SOURCE_CHANNELS = [
     "LootDealsIndia",
     "DealBee",
@@ -16,24 +16,23 @@ SOURCE_CHANNELS = [
     "bestdealsdaily099"
 ]
 
+POSTED_FILE = "posted_links.txt"
+
 posted = set()
 
+# load old posted links
+if os.path.exists(POSTED_FILE):
+    with open(POSTED_FILE, "r") as f:
+        posted = set(f.read().splitlines())
 
-def extract_amazon_link(text):
 
-    links = re.findall(r'https?://\S+', text)
-
-    for link in links:
-        if "amazon." in link or "amzn.to" in link:
-            return link
-
-    return None
+def save_link(link):
+    with open(POSTED_FILE, "a") as f:
+        f.write(link + "\n")
 
 
 def add_tag(link):
-
     link = link.split("?")[0]
-
     return f"{link}?tag={AFFILIATE_TAG}"
 
 
@@ -44,7 +43,7 @@ def send_message(text):
     data = {
         "chat_id": TARGET_CHANNEL,
         "text": text,
-        "disable_web_page_preview": False
+        "disable_web_page_preview": True
     }
 
     requests.post(url, data=data)
@@ -70,6 +69,7 @@ while True:
                     continue
 
                 posted.add(link)
+                save_link(link)
 
                 affiliate = add_tag(link)
 
