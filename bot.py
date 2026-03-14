@@ -12,7 +12,7 @@ TARGET_CHANNEL = -1002161382456
 
 SOURCE_CHANNELS = [
     "idoffers",
-    "flipshopee",
+    "flipshope",
     "eagledealsoffical",
     "bestdealsdaily099"
 ]
