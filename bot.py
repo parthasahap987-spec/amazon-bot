@@ -9,26 +9,27 @@ AFFILIATE_TAG = "partha07e-21"
 SOURCE_CHANNELS = [
     "idoffers",
     "flipshope",
-    "eagledealsoffical"
+    "eagledealsoffical",
+    "indiadealszone"
 ]
 
-last_ids = {}
+last_post = {}
 
-def expand(url):
+def expand(link):
     try:
-        r = requests.head(url, allow_redirects=True, timeout=10)
+        r = requests.head(link, allow_redirects=True, timeout=10)
         return r.url
     except:
-        return url
+        return link
 
 
-def scrape_amazon(link):
+def scrape_amazon(url):
 
     headers = {"User-Agent":"Mozilla/5.0"}
 
     try:
 
-        r = requests.get(link, headers=headers, timeout=10)
+        r = requests.get(url, headers=headers, timeout=10)
 
         html = r.text
 
@@ -54,58 +55,60 @@ def scrape_amazon(link):
         return None, "N/A", "N/A"
 
 
-def send(photo, caption):
+def send_photo(img, caption):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
         "chat_id": CHANNEL_ID,
-        "photo": photo,
+        "photo": img,
         "caption": caption
     }
 
     requests.post(url, data=data)
 
 
-print("BOT STARTED")
+print("BOT RUNNING")
 
 while True:
 
-    for channel in SOURCE_CHANNELS:
+    for ch in SOURCE_CHANNELS:
 
         try:
 
-            html = requests.get(f"https://t.me/s/{channel}").text
+            page = requests.get(f"https://t.me/s/{ch}").text
 
-            posts = re.findall(r'data-post="([^"]+)"', html)
+            posts = re.findall(r'data-post="([^"]+)"', page)
 
             if not posts:
                 continue
 
             latest = posts[0]
 
-            if channel in last_ids and last_ids[channel] == latest:
+            if last_post.get(ch) == latest:
                 continue
 
-            last_ids[channel] = latest
+            last_post[ch] = latest
 
-            links = re.findall(r'https://[^\s"]+', html)
+            links = re.findall(r'https://[^\s"]+', page)
 
             for link in links:
 
-                if "amzn." in link:
+                # detect amazon short link
+                if "amzn." in link or "amazon.in" in link:
+
                     link = expand(link)
 
-                if "amazon.in" not in link:
-                    continue
+                    if "amazon.in" not in link:
+                        continue
 
-                clean = link.split("?")[0]
+                    clean = link.split("?")[0]
 
-                image, price, discount = scrape_amazon(clean)
+                    image, price, discount = scrape_amazon(clean)
 
-                aff = f"{clean}?tag={AFFILIATE_TAG}"
+                    aff = f"{clean}?tag={AFFILIATE_TAG}"
 
-                caption = f"""🔥 Amazon Deal
+                    caption = f"""🔥 Amazon Deal
 
 💰 Price: {price}
 📉 Discount: {discount}
@@ -114,12 +117,12 @@ while True:
 {aff}
 """
 
-                if image:
-                    send(image, caption)
+                    if image:
+                        send_photo(image, caption)
 
-                break
+                    break
 
         except Exception as e:
-            print("error:", e)
+            print(e)
 
     time.sleep(20)
