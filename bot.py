@@ -4,38 +4,32 @@ import time
 from bs4 import BeautifulSoup
 
 BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
-TARGET_CHANNEL = "-1002161382456"
+CHANNEL_ID = "-1002161382456"
 AFF_TAG = "partha07e-21"
 
 SOURCE_CHANNELS = [
-    "idoffers",
-    "flipshope",
-    "eagledealsoffical",
-    "bestdealsdaily099"
+"idoffers",
+"flipshope",
+"eagledealsoffical",
+"bestdealsdaily099"
 ]
 
-last_ids = {}
-posted_links=set()
+posted=set()
 
-headers = {
-    "User-Agent": "Mozilla/5.0",
-    "Cache-Control": "no-cache"
-}
+def send(text):
 
-def send_message(text):
+    url=f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-    data = {
-        "chat_id": TARGET_CHANNEL,
-        "text": text,
-        "disable_web_page_preview": True
+    data={
+    "chat_id":CHANNEL_ID,
+    "text":text,
+    "disable_web_page_preview":True
     }
 
-    requests.post(url, data=data)
+    requests.post(url,data=data)
 
 
-print("BOT RUNNING...")
+print("BOT RUNNING")
 
 while True:
 
@@ -43,56 +37,32 @@ while True:
 
         try:
 
-            url = f"https://t.me/s/{ch}?embed=1&mode=tme"
+            html=requests.get(f"https://t.me/s/{ch}").text
 
-            r = requests.get(url, headers=headers, timeout=15)
-
-            soup = BeautifulSoup(r.text, "html.parser")
-
-            posts = soup.find_all("div", {"class": "tgme_widget_message"})
-
-            if not posts:
-                continue
-
-            latest = posts[0]
-
-            post_id = latest.get("data-post")
-
-            if last_ids.get(ch) == post_id:
-                continue
-
-            last_ids[ch] = post_id
-
-            text = latest.get_text(" ", strip=True)
-
-            links = re.findall(r'https?://\S+', text)
+            links=re.findall(r'https://www\.amazon\.in/(?:dp|gp/product)/[A-Z0-9]+',html)
 
             for link in links:
 
-                if "amazon" in link or "amzn" in link:
+                if link in posted:
+                    continue
 
-                    clean = link.split("?")[0]
+                posted.add(link)
 
-                    if clean in posted_links:
-                        continue
+                aff=f"{link}?tag={AFF_TAG}"
 
-                    posted_links.add(clean)
-
-                    affiliate = f"{clean}?tag={AFF_TAG}"
-
-                    message = f"""🔥 Amazon Deal
+                msg=f"""🔥 Amazon Deal
 
 🛒 Buy Now
-{affiliate}
+{aff}
 """
 
-                    send_message(message)
+                send(msg)
 
-                    print("POSTED:", affiliate)
+                print("POSTED:",aff)
 
-                    break
+                time.sleep(5)
 
         except Exception as e:
-            print("ERROR:", e)
+            print(e)
 
-    time.sleep(6)
+    time.sleep(15)
