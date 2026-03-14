@@ -3,22 +3,26 @@ import requests
 from telethon import TelegramClient, events
 from bs4 import BeautifulSoup
 
-# ===== TELEGRAM API =====
-
 API_ID = 32958597
 API_HASH = "a9abd4656d711a2d295168bcb539ebf9"
 
 SESSION_NAME = "session"
 
-# ===== CHANNEL SETTINGS =====
-
 TARGET_CHANNEL = -1002161382456
 
+
+# ===== SOURCE CHANNEL IDs =====
+
 SOURCE_CHANNELS = [
-    -1002165035485,-1001805243449,-1001659536566,-1001101071323,-1001927196795,-1001314450075,-1001979985045,
+    -1002165035485,
+    -1001805243449,
+    -1001659536566,
+    -1001101071323,
+    -1001927196795,
+    -1001314450075,
+    -1001979985045
 ]
 
-# ===== AMAZON AFFILIATE =====
 
 AFFILIATE_TAG = "partha07e-21"
 
@@ -27,12 +31,11 @@ posted_links = set()
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
 
-# ===== SHORT LINK EXPAND =====
+# -------- SHORT LINK EXPAND --------
 
-def expand_amazon_link(url):
+def expand_link(url):
 
     try:
-
         r = requests.get(
             url,
             allow_redirects=True,
@@ -43,31 +46,32 @@ def expand_amazon_link(url):
         return r.url
 
     except:
-
         return url
 
 
-# ===== ADD AFFILIATE TAG =====
+# -------- ADD AFFILIATE TAG --------
 
-def add_affiliate(link):
+def add_tag(url):
 
-    link = link.split("?")[0]
+    clean = url.split("?")[0]
 
-    return f"{link}?tag={AFFILIATE_TAG}"
+    return f"{clean}?tag={AFFILIATE_TAG}"
 
 
-# ===== AMAZON SCRAPER =====
+# -------- AMAZON SCRAPER --------
 
-def scrape_amazon(link):
+def scrape_amazon(url):
 
     headers = {
         "User-Agent": "Mozilla/5.0",
         "Accept-Language": "en-IN,en;q=0.9"
     }
 
-    r = requests.get(link, headers=headers, timeout=10)
+    r = requests.get(url, headers=headers, timeout=10)
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    html = r.text
+
+    soup = BeautifulSoup(html, "html.parser")
 
     price = "N/A"
     discount = "N/A"
@@ -100,16 +104,25 @@ def scrape_amazon(link):
 
         m = re.search(
             r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)',
-            r.text
+            html
         )
 
         if m:
             image = m.group(1)
 
+    # FALLBACK PRICE
+
+    if price == "N/A":
+
+        m = re.search(r'"priceToPay":\{"amount":([\d\.]+)', html)
+
+        if m:
+            price = m.group(1)
+
     return price, discount, image
 
 
-# ===== NEW POST LISTENER =====
+# -------- MESSAGE LISTENER --------
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
@@ -120,14 +133,12 @@ async def handler(event):
 
     for link in links:
 
-        if "amazon" not in link and "amzn.in" not in link and "amzn.to" not in link and "amznn.cc" not in link:
+        if "amazon" not in link and "amzn" not in link:
             continue
-
-        # EXPAND SHORT LINK
 
         if "amzn" in link:
 
-            link = expand_amazon_link(link)
+            link = expand_link(link)
 
         clean = link.split("?")[0]
 
@@ -136,7 +147,7 @@ async def handler(event):
 
         posted_links.add(clean)
 
-        affiliate_link = add_affiliate(link)
+        aff = add_tag(link)
 
         price, discount, image = scrape_amazon(link)
 
@@ -146,7 +157,7 @@ async def handler(event):
 🏷 Discount: {discount}
 
 🛒 Buy Now
-{affiliate_link}
+{aff}
 """
 
         try:
