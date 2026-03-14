@@ -1,41 +1,17 @@
 import re
 import requests
-import os
 from telethon import TelegramClient, events
-from telethon.sessions import StringSession
 from bs4 import BeautifulSoup
 
-
-# ====================================
-# A) TELEGRAM LOGIN DETAILS
-# ====================================
+# ===== TELEGRAM API =====
 
 API_ID = 32958597
 API_HASH = "a9abd4656d711a2d295168bcb539ebf9"
-SESSION_STRING = "1BVtsOIgBuw0tMgFampSRLXt8FbREcLX30z9aWlgIDgqM_2i-IQFdIIYWKuJvUnGNVV4SA_PW-4LIz6d9s7AydpL3a4kBae5FRaybwFwrrOym3w-SSWkgjrEUlNVa3PrPmVk2vQ_302sKdMc58D98p3Damn55e5Spy7fY2ZVyhWBrioNhvPylc9DlEgPuMeCqUvsetdv4IeNawY-GVAWZFkq6yTVM0WJtPVHipiUeuO27E0aU4h-68CWhGFqulQJXOd2_B_-QEpNC3NkGz6hklEsSALrMK1qklfMdTCTrobMTD2kNZvaXfuA3CNm6SFVLC35OimYkdvxgrWYCTmF5BoQgP_QcxrA="
+SESSION_NAME = "1BVtsOIgBuw0tMgFampSRLXt8FbREcLX30z9aWlgIDgqM_2i-IQFdIIYWKuJvUnGNVV4SA_PW-4LIz6d9s7AydpL3a4kBae5FRaybwFwrrOym3w-SSWkgjrEUlNVa3PrPmVk2vQ_302sKdMc58D98p3Damn55e5Spy7fY2ZVyhWBrioNhvPylc9DlEgPuMeCqUvsetdv4IeNawY-GVAWZFkq6yTVM0WJtPVHipiUeuO27E0aU4h-68CWhGFqulQJXOd2_B_-QEpNC3NkGz6hklEsSALrMK1qklfMdTCTrobMTD2kNZvaXfuA3CNm6SFVLC35OimYkdvxgrWYCTmF5BoQgP_QcxrA="
 
+# ===== CHANNEL SETTINGS =====
 
-# ====================================
-# TELEGRAM CLIENT START
-# ====================================
-
-client = TelegramClient(
-    StringSession(SESSION_STRING),
-    API_ID,
-    API_HASH
-)
-
-
-# ====================================
-# B) TARGET CHANNEL
-# ====================================
-
-TARGET_CHANNEL = -1002161382456
-
-
-# ====================================
-# C) SOURCE CHANNELS
-# ====================================
+TARGET_CHANNEL = -1001234567890
 
 SOURCE_CHANNELS = [
 -1002165035485,
@@ -47,194 +23,148 @@ SOURCE_CHANNELS = [
 -1001979985045
 ]
 
-
-# ====================================
-# AMAZON AFFILIATE TAG
-# ====================================
+# ===== AMAZON AFFILIATE =====
 
 AFFILIATE_TAG = "partha07e-21"
 
 posted_links = set()
 
+client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
-# ====================================
-# SHORT LINK EXPAND
-# ====================================
 
-def expand_link(url):
+# ===== AMAZON LINK EXTRACT =====
+
+def extract_amazon_link(text):
+
+    urls = re.findall(r'(https?://\S+)', text)
+
+    for url in urls:
+
+        if "amazon.in" in url or "amzn.to" in url or "amznn.cc" in url:
+
+            try:
+                r = requests.get(url, allow_redirects=True, timeout=10)
+                final = r.url
+                return final
+            except:
+                return url
+
+    return None
+
+
+# ===== ADD AFFILIATE TAG =====
+
+def convert_affiliate(url):
+
+    if "tag=" in url:
+        return url
+
+    if "?" in url:
+        return url + "&tag=" + AFFILIATE_TAG
+    else:
+        return url + "?tag=" + AFFILIATE_TAG
+
+
+# ===== AMAZON SCRAPER =====
+
+def get_amazon_data(url):
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
 
     try:
 
-        r = requests.get(
-            url,
-            allow_redirects=True,
-            timeout=10,
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
+        r = requests.get(url, headers=headers, timeout=10)
 
-        return r.url
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        title = soup.find(id="productTitle")
+        if title:
+            title = title.get_text().strip()
+        else:
+            title = "Amazon Product"
+
+        price = soup.find("span", {"class": "a-offscreen"})
+        if price:
+            price = price.get_text()
+        else:
+            price = "Check on Amazon"
+
+        discount = soup.find("span", {"class": "savingsPercentage"})
+        if discount:
+            discount = discount.get_text()
+        else:
+            discount = "Check on Amazon"
+
+        image = soup.find(id="landingImage")
+
+        if image:
+            image = image.get("src")
+        else:
+            image = None
+
+        return title, price, discount, image
 
     except:
 
-        return url
+        return "Amazon Product", "Check on Amazon", "Check on Amazon", None
 
 
-# ====================================
-# ADD AFFILIATE TAG
-# ====================================
-
-def add_tag(url):
-
-    clean = url.split("?")[0]
-
-    return f"{clean}?tag={AFFILIATE_TAG}"
-
-
-# ====================================
-# AMAZON SCRAPER
-# ====================================
-
-def scrape_amazon(url):
-
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-IN,en;q=0.9"
-    }
-
-    r = requests.get(url, headers=headers, timeout=10)
-
-    html = r.text
-
-    soup = BeautifulSoup(html, "html.parser")
-
-    price = None
-    discount = None
-    image = None
-
-
-    # PRICE
-
-    p = soup.select_one(".a-price .a-offscreen")
-
-    if p:
-        price = p.text.replace("₹","").strip()
-
-
-    # DISCOUNT
-
-    d = soup.select_one(".savingsPercentage")
-
-    if d:
-        discount = d.text.strip()
-
-
-    # IMAGE
-
-    img = soup.select_one("#landingImage")
-
-    if img:
-        image = img.get("src")
-
-
-    if not image:
-
-        m = re.search(
-            r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)',
-            html
-        )
-
-        if m:
-            image = m.group(1)
-
-
-    if not price:
-        price = "Check on Amazon"
-
-    if not discount:
-        discount = "Deal Available"
-
-
-    return price, discount, image
-
-
-# ====================================
-# LINK EXTRACTOR
-# ====================================
-
-def extract_links(event):
-
-    links = []
-
-    text = event.raw_text
-
-    links += re.findall(r'https?://[^\s]+', text)
-
-
-    if event.message.entities:
-
-        for e in event.message.entities:
-
-            if hasattr(e, "url"):
-                links.append(e.url)
-
-
-    return links
-
-
-# ====================================
-# TELEGRAM LISTENER
-# ====================================
+# ===== TELEGRAM EVENT =====
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
 
-    links = extract_links(event)
+    text = event.raw_text
 
-    for link in links:
+    url = extract_amazon_link(text)
 
-        if "amazon" not in link and "amzn" not in link:
-            continue
+    if not url:
+        return
 
+    if url in posted_links:
+        return
 
-        if "amzn" in link:
-            link = expand_link(link)
+    posted_links.add(url)
 
+    url = convert_affiliate(url)
 
-        clean = link.split("?")[0]
+    title, price, discount, image = get_amazon_data(url)
 
+    message = f"""
+🔥 Amazon Deal
 
-        if clean in posted_links:
-            continue
+{title}
 
+💰 Price: {price}
 
-        posted_links.add(clean)
-
-
-        aff = add_tag(link)
-
-
-        price, discount, image = scrape_amazon(link)
-
-
-        caption = f"""🔥 Amazon Deal
-
-💰 Price: ₹{price}
 🏷 Discount: {discount}
 
 🛒 Buy Now
-{aff}
+{url}
 """
 
+    if image:
 
-        try:
+        await client.send_file(
+            TARGET_CHANNEL,
+            image,
+            caption=message,
+            link_preview=False
+        )
 
-            if image:
+    else:
 
-                await client.send_file(
-                    TARGET_CHANNEL,
-                    image,
-                    caption=caption,
-                    link_preview=False
-                )
+        await client.send_message(
+            TARGET_CHANNEL,
+            message,
+            link_preview=False
+        )
 
-            else:
+
+print("BOT RUNNING...")
+
+client.start()
+
+client.run_until_disconnected()
