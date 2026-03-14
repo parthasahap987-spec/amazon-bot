@@ -1,4 +1,3 @@
-import feedparser
 import requests
 import re
 import time
@@ -14,96 +13,85 @@ SOURCE_CHANNELS = [
     "indiadealszone"
 ]
 
-posted = set()
-
+posted=set()
 
 def expand(url):
+
     try:
-        r = requests.head(url, allow_redirects=True, timeout=10)
+        r=requests.head(url,allow_redirects=True,timeout=10)
         return r.url
     except:
         return url
 
 
-def scrape_amazon(url):
+def scrape(url):
 
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers={"User-Agent":"Mozilla/5.0"}
 
-    try:
+    r=requests.get(url,headers=headers)
 
-        r = requests.get(url, headers=headers)
+    html=r.text
 
-        html = r.text
+    price="N/A"
+    discount="N/A"
+    image=None
 
-        price = "N/A"
-        discount = "N/A"
-        image = None
+    p=re.search(r'a-price-whole">([\d,]+)',html)
+    if p:
+        price="₹"+p.group(1)
 
-        p = re.search(r'a-price-whole">([\d,]+)', html)
-        if p:
-            price = "₹" + p.group(1)
+    d=re.search(r'-(\d+)%',html)
+    if d:
+        discount="-"+d.group(1)+"%"
 
-        d = re.search(r'-(\d+)%', html)
-        if d:
-            discount = "-" + d.group(1) + "%"
+    img=re.search(r'property="og:image"\s*content="([^"]+)',html)
+    if img:
+        image=img.group(1)
 
-        img = re.search(r'property="og:image"\s*content="([^"]+)', html)
-        if img:
-            image = img.group(1)
-
-        return image, price, discount
-
-    except:
-        return None, "N/A", "N/A"
+    return image,price,discount
 
 
-def send_photo(img, caption):
+def send_photo(img,caption):
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+    url=f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
-    data = {
-        "chat_id": CHANNEL_ID,
-        "photo": img,
-        "caption": caption
+    data={
+        "chat_id":CHANNEL_ID,
+        "photo":img,
+        "caption":caption
     }
 
-    requests.post(url, data=data)
+    requests.post(url,data=data)
 
-
-print("BOT RUNNING...")
 
 while True:
 
-    for channel in SOURCE_CHANNELS:
+    for ch in SOURCE_CHANNELS:
 
-        feed = feedparser.parse(f"https://rsshub.app/telegram/channel/{channel}")
+        html=requests.get(f"https://t.me/s/{ch}").text
 
-        for entry in feed.entries:
+        links=re.findall(r'https?://\S+',html)
 
-            text = entry.title + entry.summary
+        for link in links:
 
-            links = re.findall(r'https?://\S+', text)
+            if "amzn." in link:
+                link=expand(link)
 
-            for link in links:
+            if "amazon.in" not in link:
+                continue
 
-                if "amzn." in link:
-                    link = expand(link)
+            clean=link.split("?")[0]
 
-                if "amazon.in" not in link:
-                    continue
+            if clean in posted:
+                continue
 
-                clean = link.split("?")[0]
+            posted.add(clean)
 
-                if clean in posted:
-                    continue
+            image,price,discount=scrape(clean)
 
-                posted.add(clean)
+            aff=f"{clean}?tag={AFFILIATE_TAG}"
 
-                image, price, discount = scrape_amazon(clean)
-
-                aff = f"{clean}?tag={AFFILIATE_TAG}"
-
-                caption = f"""🔥 Amazon Deal
+            caption=f"""🔥 Amazon Deal
 
 💰 Price: {price}
 📉 Discount: {discount}
@@ -112,7 +100,9 @@ while True:
 {aff}
 """
 
-                if image:
-                    send_photo(image, caption)
+            if image:
+                send_photo(image,caption)
 
-    time.sleep(10)
+            time.sleep(5)
+
+    time.sleep(15)
