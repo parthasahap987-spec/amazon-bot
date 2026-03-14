@@ -3,72 +3,59 @@ import re
 import time
 from bs4 import BeautifulSoup
 
-BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
-TARGET_CHANNEL = "-1002161382456"
-
 SOURCE_CHANNELS = [
     "idoffers",
     "flipshope",
-    "eagledealsoffical"
+    "eagledealsoffical",
     "bestdealsdaily099"
 ]
 
 last_ids = {}
 
-def send_message(text):
+headers = {
+    "User-Agent": "Mozilla/5.0",
+    "Cache-Control": "no-cache"
+}
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-    data = {
-        "chat_id": TARGET_CHANNEL,
-        "text": text,
-        "disable_web_page_preview": True
-    }
-
-    requests.post(url, data=data)
-
-
-print("Bot started...")
+print("BOT RUNNING...")
 
 while True:
 
-    for channel in SOURCE_CHANNELS:
+    for ch in SOURCE_CHANNELS:
 
         try:
 
-            url = f"https://t.me/s/{channel}?embed=1&mode=tme"
+            url = f"https://t.me/s/{ch}?embed=1&mode=tme"
 
-            html = requests.get(url, timeout=20).text
+            r = requests.get(url, headers=headers, timeout=15)
 
-            soup = BeautifulSoup(html, "html.parser")
+            soup = BeautifulSoup(r.text, "html.parser")
 
-            posts = soup.select(".tgme_widget_message")
+            posts = soup.find_all("div", {"class": "tgme_widget_message"})
 
             if not posts:
                 continue
 
             latest = posts[0]
 
-            post_id = latest["data-post"]
+            post_id = latest.get("data-post")
 
-            if last_ids.get(channel) == post_id:
+            if last_ids.get(ch) == post_id:
                 continue
 
-            last_ids[channel] = post_id
+            last_ids[ch] = post_id
 
-            text_block = latest.get_text(" ", strip=True)
+            text = latest.get_text(" ", strip=True)
 
-            links = re.findall(r'https?://\S+', text_block)
+            links = re.findall(r'https?://\S+', text)
 
             for link in links:
 
                 if "amazon" in link or "amzn" in link:
 
-                    send_message(f"New Amazon Deal:\n{link}")
-
-                    break
+                    print("NEW AMAZON LINK:", link)
 
         except Exception as e:
-            print("error:", e)
+            print("ERROR:", e)
 
-    time.sleep(10)
+    time.sleep(5)
