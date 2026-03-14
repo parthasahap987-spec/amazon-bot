@@ -3,12 +3,17 @@ import requests
 from telethon import TelegramClient, events
 from bs4 import BeautifulSoup
 
+# -------- TELEGRAM API --------
+
 API_ID = 32958597
 API_HASH = "a9abd4656d711a2d295168bcb539ebf9"
 
 SESSION_NAME = "session"
 
 TARGET_CHANNEL = -1002161382456
+
+
+# -------- SOURCE CHANNELS --------
 
 SOURCE_CHANNELS = [
 -1002165035485,
@@ -20,6 +25,9 @@ SOURCE_CHANNELS = [
 -1001979985045
 ]
 
+
+# -------- AMAZON AFFILIATE --------
+
 AFFILIATE_TAG = "partha07e-21"
 
 posted_links = set()
@@ -27,11 +35,12 @@ posted_links = set()
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
 
-# -------- SHORT LINK EXPAND --------
+# -------- EXPAND SHORT LINK --------
 
 def expand_link(url):
 
     try:
+
         r = requests.get(
             url,
             allow_redirects=True,
@@ -42,12 +51,13 @@ def expand_link(url):
         return r.url
 
     except:
+
         return url
 
 
 # -------- ADD AFFILIATE TAG --------
 
-def add_tag(url):
+def affiliate_link(url):
 
     clean = url.split("?")[0]
 
@@ -73,26 +83,30 @@ def scrape_amazon(url):
     discount = None
     image = None
 
+
     # ---------- PRICE ----------
 
     p = soup.select_one(".a-price .a-offscreen")
 
     if p:
-        price = p.text.replace("₹", "").strip()
+        price = p.text.replace("₹","").strip()
+
 
     if not price:
 
         p = soup.select_one("#priceblock_dealprice")
 
         if p:
-            price = p.text.replace("₹", "").strip()
+            price = p.text.replace("₹","").strip()
+
 
     if not price:
 
         p = soup.select_one("#priceblock_ourprice")
 
         if p:
-            price = p.text.replace("₹", "").strip()
+            price = p.text.replace("₹","").strip()
+
 
     # ---------- DISCOUNT ----------
 
@@ -101,12 +115,6 @@ def scrape_amazon(url):
     if d:
         discount = d.text.strip()
 
-    if not discount:
-
-        d = soup.select_one(".a-size-large.a-color-price.savingPriceOverride")
-
-        if d:
-            discount = d.text.strip()
 
     # ---------- IMAGE ----------
 
@@ -114,6 +122,9 @@ def scrape_amazon(url):
 
     if img:
         image = img.get("src")
+
+
+    # fallback image
 
     if not image:
 
@@ -125,6 +136,7 @@ def scrape_amazon(url):
         if m:
             image = m.group(1)
 
+
     # fallback values
 
     if not price:
@@ -133,36 +145,64 @@ def scrape_amazon(url):
     if not discount:
         discount = "Deal Available"
 
+
     return price, discount, image
 
 
-# -------- LISTENER --------
+# -------- LINK DETECTOR --------
+
+def extract_links(event):
+
+    links = []
+
+    text = event.raw_text
+
+    links += re.findall(r'https?://[^\s]+', text)
+
+
+    if event.message.entities:
+
+        for e in event.message.entities:
+
+            if hasattr(e, "url"):
+                links.append(e.url)
+
+
+    return links
+
+
+# -------- MESSAGE LISTENER --------
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
 
-    text = event.raw_text
-
-    links = re.findall(r'https?://[^\s]+', text)
+    links = extract_links(event)
 
     for link in links:
 
         if "amazon" not in link and "amzn" not in link:
             continue
 
+
         if "amzn" in link:
             link = expand_link(link)
 
+
         clean = link.split("?")[0]
+
 
         if clean in posted_links:
             continue
 
+
         posted_links.add(clean)
 
-        affiliate = add_tag(link)
+
+        aff = affiliate_link(link)
+
 
         price, discount, image = scrape_amazon(link)
+
 
         caption = f"""🔥 Amazon Deal
 
@@ -170,8 +210,9 @@ async def handler(event):
 🏷 Discount: {discount}
 
 🛒 Buy Now
-{affiliate}
+{aff}
 """
+
 
         try:
 
@@ -191,6 +232,7 @@ async def handler(event):
                     caption,
                     link_preview=False
                 )
+
 
         except Exception as e:
 
