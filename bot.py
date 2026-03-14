@@ -1,7 +1,6 @@
 import requests
 import re
 import time
-from bs4 import BeautifulSoup
 
 BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
 CHANNEL_ID = "-1002161382456"
@@ -15,6 +14,8 @@ SOURCE_CHANNELS = [
 ]
 
 posted=set()
+started=False
+
 
 def send(text):
 
@@ -41,6 +42,12 @@ while True:
 
             links=re.findall(r'https://www\.amazon\.in/(?:dp|gp/product)/[A-Z0-9]+',html)
 
+            links=list(set(links))
+
+            if not started:
+                posted.update(links)
+                continue
+
             for link in links:
 
                 if link in posted:
@@ -65,4 +72,6 @@ while True:
         except Exception as e:
             print(e)
 
-    time.sleep(15)
+    started=True
+
+    time.sleep(20)
