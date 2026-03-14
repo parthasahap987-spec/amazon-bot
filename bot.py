@@ -1,77 +1,63 @@
-import requests
+from telethon import TelegramClient, events
 import re
-import time
 
-BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
-CHANNEL_ID = "-1002161382456"
+api_id = 32958597
+api_hash = "a9abd4656d711a2d295168bcb539ebf9"
+
+TARGET_CHANNEL = -1002161382456
 AFF_TAG = "partha07e-21"
 
 SOURCE_CHANNELS = [
-"idoffers",
-"flipshope",
-"eagledealsoffical",
-"bestdealsdaily099"
+    "idoffers",
+    "flipshope",
+    "eagledealsoffical",
+    "bestdealsdaily099"
 ]
 
+client = TelegramClient("session", api_id, api_hash)
+
 posted=set()
-started=False
+
+def convert(link):
+
+    clean = link.split("?")[0]
+
+    return f"{clean}?tag={AFF_TAG}"
 
 
-def send(text):
+@client.on(events.NewMessage(chats=SOURCE_CHANNELS))
+async def handler(event):
 
-    url=f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    text = event.raw_text
 
-    data={
-    "chat_id":CHANNEL_ID,
-    "text":text,
-    "disable_web_page_preview":True
-    }
+    links = re.findall(r'https://\S+', text)
 
-    requests.post(url,data=data)
+    for link in links:
 
+        if "amazon" in link or "amzn" in link:
 
-print("BOT RUNNING")
+            clean = link.split("?")[0]
 
-while True:
+            if clean in posted:
+                return
 
-    for ch in SOURCE_CHANNELS:
+            posted.add(clean)
 
-        try:
+            aff = convert(clean)
 
-            html=requests.get(f"https://t.me/s/{ch}").text
-
-            links=re.findall(r'https://www\.amazon\.in/(?:dp|gp/product)/[A-Z0-9]+',html)
-
-            links=list(set(links))
-
-            if not started:
-                posted.update(links)
-                continue
-
-            for link in links:
-
-                if link in posted:
-                    continue
-
-                posted.add(link)
-
-                aff=f"{link}?tag={AFF_TAG}"
-
-                msg=f"""🔥 Amazon Deal
+            msg=f"""🔥 Amazon Deal
 
 🛒 Buy Now
 {aff}
 """
 
-                send(msg)
+            await client.send_message(TARGET_CHANNEL,msg)
 
-                print("POSTED:",aff)
+            print("POSTED:",aff)
 
-                time.sleep(5)
 
-        except Exception as e:
-            print(e)
+client.start()
 
-    started=True
+print("BOT RUNNING...")
 
-    time.sleep(20)
+client.run_until_disconnected()
