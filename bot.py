@@ -3,6 +3,10 @@ import re
 import time
 from bs4 import BeautifulSoup
 
+BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
+TARGET_CHANNEL = "-1002161382456"
+AFF_TAG = "partha07e-21"
+
 SOURCE_CHANNELS = [
     "idoffers",
     "flipshope",
@@ -16,6 +20,18 @@ headers = {
     "User-Agent": "Mozilla/5.0",
     "Cache-Control": "no-cache"
 }
+
+def send_message(text):
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    data = {
+        "chat_id": TARGET_CHANNEL,
+        "text": text
+    }
+
+    requests.post(url, data=data)
+
 
 print("BOT RUNNING...")
 
@@ -53,9 +69,23 @@ while True:
 
                 if "amazon" in link or "amzn" in link:
 
-                    print("NEW AMAZON LINK:", link)
+                    clean = link.split("?")[0]
+
+                    affiliate = f"{clean}?tag={AFF_TAG}"
+
+                    message = f"""🔥 Amazon Deal
+
+🛒 Buy Now
+{affiliate}
+"""
+
+                    send_message(message)
+
+                    print("POSTED:", affiliate)
+
+                    break
 
         except Exception as e:
             print("ERROR:", e)
 
-    time.sleep(5)
+    time.sleep(6)
