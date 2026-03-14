@@ -1,3 +1,4 @@
+import feedparser
 import requests
 import re
 import time
@@ -13,23 +14,24 @@ SOURCE_CHANNELS = [
     "indiadealszone"
 ]
 
-last_post = {}
+posted = set()
 
-def expand(link):
+
+def expand(url):
     try:
-        r = requests.head(link, allow_redirects=True, timeout=10)
+        r = requests.head(url, allow_redirects=True, timeout=10)
         return r.url
     except:
-        return link
+        return url
 
 
 def scrape_amazon(url):
 
-    headers = {"User-Agent":"Mozilla/5.0"}
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
 
-        r = requests.get(url, headers=headers, timeout=10)
+        r = requests.get(url, headers=headers)
 
         html = r.text
 
@@ -68,47 +70,40 @@ def send_photo(img, caption):
     requests.post(url, data=data)
 
 
-print("BOT RUNNING")
+print("BOT RUNNING...")
 
 while True:
 
-    for ch in SOURCE_CHANNELS:
+    for channel in SOURCE_CHANNELS:
 
-        try:
+        feed = feedparser.parse(f"https://rsshub.app/telegram/channel/{channel}")
 
-            page = requests.get(f"https://t.me/s/{ch}").text
+        for entry in feed.entries:
 
-            posts = re.findall(r'data-post="([^"]+)"', page)
+            text = entry.title + entry.summary
 
-            if not posts:
-                continue
-
-            latest = posts[0]
-
-            if last_post.get(ch) == latest:
-                continue
-
-            last_post[ch] = latest
-
-            links = re.findall(r'https://[^\s"]+', page)
+            links = re.findall(r'https?://\S+', text)
 
             for link in links:
 
-                # detect amazon short link
-                if "amzn." in link or "amazon.in" in link:
-
+                if "amzn." in link:
                     link = expand(link)
 
-                    if "amazon.in" not in link:
-                        continue
+                if "amazon.in" not in link:
+                    continue
 
-                    clean = link.split("?")[0]
+                clean = link.split("?")[0]
 
-                    image, price, discount = scrape_amazon(clean)
+                if clean in posted:
+                    continue
 
-                    aff = f"{clean}?tag={AFFILIATE_TAG}"
+                posted.add(clean)
 
-                    caption = f"""🔥 Amazon Deal
+                image, price, discount = scrape_amazon(clean)
+
+                aff = f"{clean}?tag={AFFILIATE_TAG}"
+
+                caption = f"""🔥 Amazon Deal
 
 💰 Price: {price}
 📉 Discount: {discount}
@@ -117,12 +112,7 @@ while True:
 {aff}
 """
 
-                    if image:
-                        send_photo(image, caption)
+                if image:
+                    send_photo(image, caption)
 
-                    break
-
-        except Exception as e:
-            print(e)
-
-    time.sleep(20)
+    time.sleep(10)
