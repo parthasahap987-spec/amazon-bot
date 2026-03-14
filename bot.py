@@ -1,19 +1,41 @@
 import re
 import requests
+import os
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from bs4 import BeautifulSoup
 
-# -------- TELEGRAM API --------
+
+# ====================================
+# A) TELEGRAM LOGIN DETAILS
+# ====================================
 
 API_ID = 32958597
 API_HASH = "a9abd4656d711a2d295168bcb539ebf9"
+SESSION_STRING = "1BVtsOIgBuw0tMgFampSRLXt8FbREcLX30z9aWlgIDgqM_2i-IQFdIIYWKuJvUnGNVV4SA_PW-4LIz6d9s7AydpL3a4kBae5FRaybwFwrrOym3w-SSWkgjrEUlNVa3PrPmVk2vQ_302sKdMc58D98p3Damn55e5Spy7fY2ZVyhWBrioNhvPylc9DlEgPuMeCqUvsetdv4IeNawY-GVAWZFkq6yTVM0WJtPVHipiUeuO27E0aU4h-68CWhGFqulQJXOd2_B_-QEpNC3NkGz6hklEsSALrMK1qklfMdTCTrobMTD2kNZvaXfuA3CNm6SFVLC35OimYkdvxgrWYCTmF5BoQgP_QcxrA="
 
-SESSION_NAME = "session"
+
+# ====================================
+# TELEGRAM CLIENT START
+# ====================================
+
+client = TelegramClient(
+    StringSession(SESSION_STRING),
+    API_ID,
+    API_HASH
+)
+
+
+# ====================================
+# B) TARGET CHANNEL
+# ====================================
 
 TARGET_CHANNEL = -1002161382456
 
 
-# -------- SOURCE CHANNELS --------
+# ====================================
+# C) SOURCE CHANNELS
+# ====================================
 
 SOURCE_CHANNELS = [
 -1002165035485,
@@ -26,16 +48,18 @@ SOURCE_CHANNELS = [
 ]
 
 
-# -------- AMAZON AFFILIATE --------
+# ====================================
+# AMAZON AFFILIATE TAG
+# ====================================
 
 AFFILIATE_TAG = "partha07e-21"
 
 posted_links = set()
 
-client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
-
-# -------- EXPAND SHORT LINK --------
+# ====================================
+# SHORT LINK EXPAND
+# ====================================
 
 def expand_link(url):
 
@@ -55,16 +79,20 @@ def expand_link(url):
         return url
 
 
-# -------- ADD AFFILIATE TAG --------
+# ====================================
+# ADD AFFILIATE TAG
+# ====================================
 
-def affiliate_link(url):
+def add_tag(url):
 
     clean = url.split("?")[0]
 
     return f"{clean}?tag={AFFILIATE_TAG}"
 
 
-# -------- AMAZON SCRAPER --------
+# ====================================
+# AMAZON SCRAPER
+# ====================================
 
 def scrape_amazon(url):
 
@@ -84,7 +112,7 @@ def scrape_amazon(url):
     image = None
 
 
-    # ---------- PRICE ----------
+    # PRICE
 
     p = soup.select_one(".a-price .a-offscreen")
 
@@ -92,23 +120,7 @@ def scrape_amazon(url):
         price = p.text.replace("₹","").strip()
 
 
-    if not price:
-
-        p = soup.select_one("#priceblock_dealprice")
-
-        if p:
-            price = p.text.replace("₹","").strip()
-
-
-    if not price:
-
-        p = soup.select_one("#priceblock_ourprice")
-
-        if p:
-            price = p.text.replace("₹","").strip()
-
-
-    # ---------- DISCOUNT ----------
+    # DISCOUNT
 
     d = soup.select_one(".savingsPercentage")
 
@@ -116,15 +128,13 @@ def scrape_amazon(url):
         discount = d.text.strip()
 
 
-    # ---------- IMAGE ----------
+    # IMAGE
 
     img = soup.select_one("#landingImage")
 
     if img:
         image = img.get("src")
 
-
-    # fallback image
 
     if not image:
 
@@ -137,8 +147,6 @@ def scrape_amazon(url):
             image = m.group(1)
 
 
-    # fallback values
-
     if not price:
         price = "Check on Amazon"
 
@@ -149,7 +157,9 @@ def scrape_amazon(url):
     return price, discount, image
 
 
-# -------- LINK DETECTOR --------
+# ====================================
+# LINK EXTRACTOR
+# ====================================
 
 def extract_links(event):
 
@@ -171,7 +181,9 @@ def extract_links(event):
     return links
 
 
-# -------- MESSAGE LISTENER --------
+# ====================================
+# TELEGRAM LISTENER
+# ====================================
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
@@ -198,7 +210,7 @@ async def handler(event):
         posted_links.add(clean)
 
 
-        aff = affiliate_link(link)
+        aff = add_tag(link)
 
 
         price, discount, image = scrape_amazon(link)
@@ -226,21 +238,3 @@ async def handler(event):
                 )
 
             else:
-
-                await client.send_message(
-                    TARGET_CHANNEL,
-                    caption,
-                    link_preview=False
-                )
-
-
-        except Exception as e:
-
-            print(e)
-
-
-print("BOT RUNNING...")
-
-client.start()
-
-client.run_until_disconnected()
