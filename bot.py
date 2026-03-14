@@ -10,9 +10,6 @@ SESSION_NAME = "session"
 
 TARGET_CHANNEL = -1002161382456
 
-
-# ===== SOURCE CHANNEL IDs =====
-
 SOURCE_CHANNELS = [
     -1002165035485,
     -1001805243449,
@@ -22,7 +19,6 @@ SOURCE_CHANNELS = [
     -1001314450075,
     -1001979985045
 ]
-
 
 AFFILIATE_TAG = "partha07e-21"
 
@@ -42,7 +38,6 @@ def expand_link(url):
             timeout=10,
             headers={"User-Agent": "Mozilla/5.0"}
         )
-
         return r.url
 
     except:
@@ -77,7 +72,7 @@ def scrape_amazon(url):
     discount = "N/A"
     image = None
 
-    # PRICE
+    # PRICE (stable selector)
 
     p = soup.select_one(".a-price .a-offscreen")
 
@@ -98,7 +93,7 @@ def scrape_amazon(url):
     if img:
         image = img.get("src")
 
-    # FALLBACK IMAGE
+    # IMAGE fallback
 
     if not image:
 
@@ -109,15 +104,6 @@ def scrape_amazon(url):
 
         if m:
             image = m.group(1)
-
-    # FALLBACK PRICE
-
-    if price == "N/A":
-
-        m = re.search(r'"priceToPay":\{"amount":([\d\.]+)', html)
-
-        if m:
-            price = m.group(1)
 
     return price, discount, image
 
@@ -136,18 +122,19 @@ async def handler(event):
         if "amazon" not in link and "amzn" not in link:
             continue
 
-        if "amzn" in link:
+        # expand short link
 
+        if "amzn" in link:
             link = expand_link(link)
 
         clean = link.split("?")[0]
 
         if clean in posted_links:
-            return
+            continue
 
         posted_links.add(clean)
 
-        aff = add_tag(link)
+        affiliate_link = add_tag(link)
 
         price, discount, image = scrape_amazon(link)
 
@@ -157,7 +144,7 @@ async def handler(event):
 🏷 Discount: {discount}
 
 🛒 Buy Now
-{aff}
+{affiliate_link}
 """
 
         try:
