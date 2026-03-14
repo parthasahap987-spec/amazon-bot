@@ -1,5 +1,5 @@
-import re
 import requests
+import re
 import time
 
 BOT_TOKEN = "8799971120:AAFzhADyO1e8A7UH5H80xOkrgCvSb3RBYjM"
@@ -12,9 +12,9 @@ SOURCE_CHANNELS = [
     "eagledealsoffical"
 ]
 
-posted_links = set()
+last_ids = {}
 
-def expand_short(url):
+def expand(url):
     try:
         r = requests.head(url, allow_redirects=True, timeout=10)
         return r.url
@@ -22,37 +22,28 @@ def expand_short(url):
         return url
 
 
-def extract_links(html):
-
-    links = re.findall(r'https://[^\s"]+', html)
-
-    return links
-
-
 def scrape_amazon(link):
 
-    headers = {"User-Agent": "Mozilla/5.0"}
+    headers = {"User-Agent":"Mozilla/5.0"}
 
     try:
 
         r = requests.get(link, headers=headers, timeout=10)
+
         html = r.text
 
         price = "N/A"
         discount = "N/A"
         image = None
 
-        # price
-        p = re.search(r'class="a-price-whole">([\d,]+)', html)
+        p = re.search(r'a-price-whole">([\d,]+)', html)
         if p:
             price = "₹" + p.group(1)
 
-        # discount
         d = re.search(r'-(\d+)%', html)
         if d:
             discount = "-" + d.group(1) + "%"
 
-        # image
         img = re.search(r'property="og:image"\s*content="([^"]+)', html)
         if img:
             image = img.group(1)
@@ -63,14 +54,7 @@ def scrape_amazon(link):
         return None, "N/A", "N/A"
 
 
-def affiliate(link):
-
-    base = link.split("?")[0]
-
-    return f"{base}?tag={AFFILIATE_TAG}"
-
-
-def send_photo(photo, caption):
+def send(photo, caption):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
@@ -83,7 +67,7 @@ def send_photo(photo, caption):
     requests.post(url, data=data)
 
 
-print("BOT STARTED...")
+print("BOT STARTED")
 
 while True:
 
@@ -91,30 +75,35 @@ while True:
 
         try:
 
-            url = f"https://t.me/s/{channel}"
+            html = requests.get(f"https://t.me/s/{channel}").text
 
-            html = requests.get(url).text
+            posts = re.findall(r'data-post="([^"]+)"', html)
 
-            links = extract_links(html)
+            if not posts:
+                continue
+
+            latest = posts[0]
+
+            if channel in last_ids and last_ids[channel] == latest:
+                continue
+
+            last_ids[channel] = latest
+
+            links = re.findall(r'https://[^\s"]+', html)
 
             for link in links:
 
                 if "amzn." in link:
-                    link = expand_short(link)
+                    link = expand(link)
 
                 if "amazon.in" not in link:
                     continue
 
                 clean = link.split("?")[0]
 
-                if clean in posted_links:
-                    continue
+                image, price, discount = scrape_amazon(clean)
 
-                posted_links.add(clean)
-
-                img, price, discount = scrape_amazon(clean)
-
-                aff = affiliate(clean)
+                aff = f"{clean}?tag={AFFILIATE_TAG}"
 
                 caption = f"""🔥 Amazon Deal
 
@@ -125,12 +114,12 @@ while True:
 {aff}
 """
 
-                if img:
-                    send_photo(img, caption)
+                if image:
+                    send(image, caption)
 
-                time.sleep(4)
+                break
 
         except Exception as e:
-            print("Error:", e)
+            print("error:", e)
 
     time.sleep(20)
