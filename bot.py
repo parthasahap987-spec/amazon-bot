@@ -15,6 +15,7 @@ SOURCE_CHANNELS = [
 ]
 
 last_ids = {}
+posted_links=set()
 
 headers = {
     "User-Agent": "Mozilla/5.0",
@@ -27,7 +28,8 @@ def send_message(text):
 
     data = {
         "chat_id": TARGET_CHANNEL,
-        "text": text
+        "text": text,
+        "disable_web_page_preview": True
     }
 
     requests.post(url, data=data)
@@ -70,6 +72,11 @@ while True:
                 if "amazon" in link or "amzn" in link:
 
                     clean = link.split("?")[0]
+
+                    if clean in posted_links:
+                        continue
+
+                    posted_links.add(clean)
 
                     affiliate = f"{clean}?tag={AFF_TAG}"
 
