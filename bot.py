@@ -11,13 +11,13 @@ SESSION_NAME = "session"
 TARGET_CHANNEL = -1002161382456
 
 SOURCE_CHANNELS = [
-    -1002165035485,
-    -1001805243449,
-    -1001659536566,
-    -1001101071323,
-    -1001927196795,
-    -1001314450075,
-    -1001979985045
+-1002165035485,
+-1001805243449,
+-1001659536566,
+-1001101071323,
+-1001927196795,
+-1001314450075,
+-1001979985045
 ]
 
 AFFILIATE_TAG = "partha07e-21"
@@ -38,6 +38,7 @@ def expand_link(url):
             timeout=10,
             headers={"User-Agent": "Mozilla/5.0"}
         )
+
         return r.url
 
     except:
@@ -68,32 +69,51 @@ def scrape_amazon(url):
 
     soup = BeautifulSoup(html, "html.parser")
 
-    price = "N/A"
-    discount = "N/A"
+    price = None
+    discount = None
     image = None
 
-    # PRICE (stable selector)
+    # ---------- PRICE ----------
 
     p = soup.select_one(".a-price .a-offscreen")
 
     if p:
         price = p.text.replace("₹", "").strip()
 
-    # DISCOUNT
+    if not price:
+
+        p = soup.select_one("#priceblock_dealprice")
+
+        if p:
+            price = p.text.replace("₹", "").strip()
+
+    if not price:
+
+        p = soup.select_one("#priceblock_ourprice")
+
+        if p:
+            price = p.text.replace("₹", "").strip()
+
+    # ---------- DISCOUNT ----------
 
     d = soup.select_one(".savingsPercentage")
 
     if d:
         discount = d.text.strip()
 
-    # IMAGE
+    if not discount:
+
+        d = soup.select_one(".a-size-large.a-color-price.savingPriceOverride")
+
+        if d:
+            discount = d.text.strip()
+
+    # ---------- IMAGE ----------
 
     img = soup.select_one("#landingImage")
 
     if img:
         image = img.get("src")
-
-    # IMAGE fallback
 
     if not image:
 
@@ -105,10 +125,18 @@ def scrape_amazon(url):
         if m:
             image = m.group(1)
 
+    # fallback values
+
+    if not price:
+        price = "Check on Amazon"
+
+    if not discount:
+        discount = "Deal Available"
+
     return price, discount, image
 
 
-# -------- MESSAGE LISTENER --------
+# -------- LISTENER --------
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
@@ -122,8 +150,6 @@ async def handler(event):
         if "amazon" not in link and "amzn" not in link:
             continue
 
-        # expand short link
-
         if "amzn" in link:
             link = expand_link(link)
 
@@ -134,7 +160,7 @@ async def handler(event):
 
         posted_links.add(clean)
 
-        affiliate_link = add_tag(link)
+        affiliate = add_tag(link)
 
         price, discount, image = scrape_amazon(link)
 
@@ -144,7 +170,7 @@ async def handler(event):
 🏷 Discount: {discount}
 
 🛒 Buy Now
-{affiliate_link}
+{affiliate}
 """
 
         try:
