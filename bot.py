@@ -3,62 +3,57 @@ import requests
 from telethon import TelegramClient, events
 from bs4 import BeautifulSoup
 
-# ===== TELEGRAM API =====
-
 API_ID = 32958597
 API_HASH = "a9abd4656d711a2d295168bcb539ebf9"
 
 SESSION_NAME = "session"
 
-# ===== CHANNEL SETTINGS =====
-
 TARGET_CHANNEL = -1002161382456
 
 SOURCE_CHANNELS = [
     "idoffers",
-    "flipshope",
+    "flipshopee",
     "eagledealsoffical",
     "bestdealsdaily099"
 ]
 
-# ===== AMAZON AFFILIATE =====
-
 AFFILIATE_TAG = "partha07e-21"
 
-posted_links = set()
+posted = set()
 
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
 
-# ===== SHORT LINK EXPAND =====
+# -------- SHORT LINK EXPAND --------
 
-def expand_link(link):
+def expand_link(url):
 
     try:
-        r = requests.get(link, timeout=10)
+        r = requests.get(url, timeout=10, allow_redirects=True)
         return r.url
     except:
-        return link
+        return url
 
 
-# ===== ADD AFFILIATE TAG =====
+# -------- ADD AFFILIATE TAG --------
 
-def add_affiliate(link):
+def add_tag(url):
 
-    link = link.split("?")[0]
+    clean = url.split("?")[0]
 
-    return f"{link}?tag={AFFILIATE_TAG}"
+    return f"{clean}?tag={AFFILIATE_TAG}"
 
 
-# ===== AMAZON SCRAPER =====
+# -------- AMAZON SCRAPER --------
 
-def scrape_amazon(link):
+def scrape_amazon(url):
 
     headers = {
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9"
     }
 
-    r = requests.get(link, headers=headers)
+    r = requests.get(url, headers=headers, timeout=10)
 
     soup = BeautifulSoup(r.text, "html.parser")
 
@@ -66,25 +61,40 @@ def scrape_amazon(link):
     discount = "N/A"
     image = None
 
-    price_tag = soup.select_one(".a-price-whole")
+    # PRICE
 
-    if price_tag:
-        price = price_tag.text.strip()
+    p = soup.select_one(".a-price .a-offscreen")
 
-    discount_tag = soup.select_one(".savingsPercentage")
+    if p:
+        price = p.text.replace("₹","").strip()
 
-    if discount_tag:
-        discount = discount_tag.text.strip()
+    # DISCOUNT
 
-    img = soup.find("img", {"id": "landingImage"})
+    d = soup.select_one(".savingsPercentage")
+
+    if d:
+        discount = d.text.strip()
+
+    # IMAGE
+
+    img = soup.select_one("#landingImage")
 
     if img:
         image = img.get("src")
 
+    # FALLBACK IMAGE (JSON)
+
+    if not image:
+
+        m = re.search(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+)', r.text)
+
+        if m:
+            image = m.group(1)
+
     return price, discount, image
 
 
-# ===== NEW MESSAGE LISTENER =====
+# -------- MESSAGE LISTENER --------
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
@@ -98,19 +108,21 @@ async def handler(event):
         if "amazon" not in link and "amzn.in" not in link:
             continue
 
+        # expand short link
+
         if "amzn.in" in link:
             link = expand_link(link)
 
         clean = link.split("?")[0]
 
-        if clean in posted_links:
+        if clean in posted:
             return
 
-        posted_links.add(clean)
+        posted.add(clean)
 
-        affiliate_link = add_affiliate(link)
+        aff = add_tag(link)
 
-        price, discount, image = scrape_amazon(affiliate_link)
+        price, discount, image = scrape_amazon(link)
 
         caption = f"""🔥 Amazon Deal
 
@@ -118,7 +130,7 @@ async def handler(event):
 🏷 Discount: {discount}
 
 🛒 Buy Now
-{affiliate_link}
+{aff}
 """
 
         try:
