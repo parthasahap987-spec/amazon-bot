@@ -10,6 +10,7 @@ SOURCE_CHANNELS = [
     "idoffers",
     "flipshope",
     "eagledealsoffical"
+    "bestdealsdaily099"
 ]
 
 last_ids = {}
