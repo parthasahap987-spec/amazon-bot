@@ -15,6 +15,7 @@ SOURCE_CHANNELS = [
     "flipshope",
     "eagledealsoffical",
     "bestdealsdaily099"
+    "freekart"
 ]
 
 AFFILIATE_TAG = "partha07e-21"
