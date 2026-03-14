@@ -1,13 +1,15 @@
 import re
 import requests
 from telethon import TelegramClient, events
+from telethon.sessions import StringSession
 from bs4 import BeautifulSoup
 
 # ===== TELEGRAM API =====
 
 API_ID = 32958597
 API_HASH = "a9abd4656d711a2d295168bcb539ebf9"
-SESSION_NAME = "1BVtsOIgBuw0tMgFampSRLXt8FbREcLX30z9aWlgIDgqM_2i-IQFdIIYWKuJvUnGNVV4SA_PW-4LIz6d9s7AydpL3a4kBae5FRaybwFwrrOym3w-SSWkgjrEUlNVa3PrPmVk2vQ_302sKdMc58D98p3Damn55e5Spy7fY2ZVyhWBrioNhvPylc9DlEgPuMeCqUvsetdv4IeNawY-GVAWZFkq6yTVM0WJtPVHipiUeuO27E0aU4h-68CWhGFqulQJXOd2_B_-QEpNC3NkGz6hklEsSALrMK1qklfMdTCTrobMTD2kNZvaXfuA3CNm6SFVLC35OimYkdvxgrWYCTmF5BoQgP_QcxrA="
+
+SESSION = "1BVtsOIgBuw0tMgFampSRLXt8FbREcLX30z9aWlgIDgqM_2i-IQFdIIYWKuJvUnGNVV4SA_PW-4LIz6d9s7AydpL3a4kBae5FRaybwFwrrOym3w-SSWkgjrEUlNVa3PrPmVk2vQ_302sKdMc58D98p3Damn55e5Spy7fY2ZVyhWBrioNhvPylc9DlEgPuMeCqUvsetdv4IeNawY-GVAWZFkq6yTVM0WJtPVHipiUeuO27E0aU4h-68CWhGFqulQJXOd2_B_-QEpNC3NkGz6hklEsSALrMK1qklfMdTCTrobMTD2kNZvaXfuA3CNm6SFVLC35OimYkdvxgrWYCTmF5BoQgP_QcxrA="
 
 # ===== CHANNEL SETTINGS =====
 
@@ -29,10 +31,8 @@ AFFILIATE_TAG = "partha07e-21"
 
 posted_links = set()
 
-client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
+client = TelegramClient(StringSession(SESSION), API_ID, API_HASH)
 
-
-# ===== AMAZON LINK EXTRACT =====
 
 def extract_amazon_link(text):
 
@@ -44,15 +44,12 @@ def extract_amazon_link(text):
 
             try:
                 r = requests.get(url, allow_redirects=True, timeout=10)
-                final = r.url
-                return final
+                return r.url
             except:
                 return url
 
     return None
 
-
-# ===== ADD AFFILIATE TAG =====
 
 def convert_affiliate(url):
 
@@ -65,33 +62,31 @@ def convert_affiliate(url):
         return url + "?tag=" + AFFILIATE_TAG
 
 
-# ===== AMAZON SCRAPER =====
-
 def get_amazon_data(url):
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     try:
 
-        r = requests.get(url, headers=headers, timeout=10)
-
+        r = requests.get(url, headers=headers)
         soup = BeautifulSoup(r.text, "html.parser")
 
         title = soup.find(id="productTitle")
+
         if title:
             title = title.get_text().strip()
         else:
             title = "Amazon Product"
 
         price = soup.find("span", {"class": "a-offscreen"})
+
         if price:
             price = price.get_text()
         else:
             price = "Check on Amazon"
 
         discount = soup.find("span", {"class": "savingsPercentage"})
+
         if discount:
             discount = discount.get_text()
         else:
@@ -110,8 +105,6 @@ def get_amazon_data(url):
 
         return "Amazon Product", "Check on Amazon", "Check on Amazon", None
 
-
-# ===== TELEGRAM EVENT =====
 
 @client.on(events.NewMessage(chats=SOURCE_CHANNELS))
 async def handler(event):
@@ -166,5 +159,4 @@ async def handler(event):
 print("BOT RUNNING...")
 
 client.start()
-
 client.run_until_disconnected()
